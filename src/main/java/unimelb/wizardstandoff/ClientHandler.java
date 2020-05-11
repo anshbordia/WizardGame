@@ -1,4 +1,4 @@
-package wizardstandoff;
+package unimelb.wizardstandoff;
 
 import java.io.BufferedReader;
 import java.io.IOException;
