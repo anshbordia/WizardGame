@@ -1,4 +1,4 @@
-package wizardstandoff;
+package unimelb.wizardstandoff;
 
 import java.util.Scanner;
 

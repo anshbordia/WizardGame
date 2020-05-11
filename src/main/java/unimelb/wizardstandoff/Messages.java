@@ -1,4 +1,4 @@
-package wizardstandoff;
+package unimelb.wizardstandoff;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
