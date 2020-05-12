@@ -12,7 +12,7 @@ public class Peer {
 	private BufferedReader input = null;
 	PrintWriter out = null; 
 	Scanner sc = new Scanner(System.in);
-	private Wizard wizard = null;
+	private Wizard wizard;
 	
 	//Constructor
 	public Peer(String ip, int port) {
@@ -36,12 +36,13 @@ public class Peer {
 		String line = "";
 		String command = "";
 		JSONObject json;
+		
 		while(!command.equals("Begin")) {
 			try {
 				line = input.readLine();
 				json = Messages.strToJson(line);
 				command = json.get("command").toString();
-				wizard = new Wizard((double) json.get("yourprob"));
+				wizard = new Wizard((double) json.get("yourprob"), (long)json.get("playernum"));
 				Helper.getStatistics(json);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -54,7 +55,7 @@ public class Peer {
 		int attackWho = -1;
 		long time = -1;
 		boolean success = true;
-		while (!status.equals("Dead")) 
+		while (wizard.getStatus() == 1) 
 		{ 
 			try
 			{
@@ -65,10 +66,23 @@ public class Peer {
 				attackWho = sc.nextInt();
 				time = Helper.getTime();
 				success = wizard.attack(wizard.hitRate);
-				out.println(Messages.sendAttack(attackWho, time, success)); 
+				out.println(Messages.sendAttack((int) attackWho, time, success, wizard.wizardNum).toString()); 
 				line = input.readLine(); 
-				//wizard.setStatus(line);
 				System.out.println("Lobby: " + line);
+				boolean deadOrAlive = Helper.processFeedback(line, wizard.wizardNum);
+				if(deadOrAlive) {
+					wizard.setStatus();
+					out.println("Over");
+				}
+				else {
+					if((Helper.amIwinner(line))) {
+						System.out.println("You win!!!");
+						wizard.setStatus();
+						out.println("Over");
+					}
+				}
+				//wizard.setStatus(line);
+				
 			} 
 			catch(IOException i) 
 			{ 

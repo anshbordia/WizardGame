@@ -10,30 +10,35 @@ public class Lobby {
 	private BufferedReader input = null;
 	PrintWriter out = null; 
 	Scanner sc = new Scanner(System.in);
-	private Socket[] socketlist = new Socket[2];
-	private double[] kill_probablities = new double[2];
+	private Socket[] socketlist; 
+	private double[] kill_probablities;
 
 
 	public Lobby(int port) {
+		System.out.println("Enter number of players. Min:2 Max:4");
+		int total = sc.nextInt();
+		socketlist = new Socket [total];
+		kill_probablities = new double[total];
+		
 		try {
 			lobby = new ServerSocket(port);
 			
 			System.out.println("Lobby: Lobby Started! Waiting for players...");
 			int player_num = 1;
-			while(player_num < 3) {
+			while(player_num < (total + 1)) {
 				socketlist[player_num - 1] = lobby.accept();
 				System.out.println("Player " + player_num + " Connected!");
 				kill_probablities[player_num - 1] = Math.random() * 0.9 + 0.05;
 				player_num += 1;
 				
 			}
-			for(int k = 0; k < 2; k++ ) {
+			for(int k = 0; k < total; k++ ) {
 				out = new PrintWriter(
 						new BufferedWriter(new OutputStreamWriter(
 								socketlist[k].getOutputStream(), "UTF-8")), true); 		
 				input = new BufferedReader(new InputStreamReader(socketlist[k].getInputStream(), "UTF-8"));
 				System.out.println("Assigning thread to this player");
-				ClientHandler player = new ClientHandler(socketlist[k], input, out, kill_probablities, k + 1);
+				ClientHandler player = new ClientHandler(socketlist[k], input, out, kill_probablities, (long)(k + 1));
 				Thread t = new Thread(player);
 				t.start();
 			}
