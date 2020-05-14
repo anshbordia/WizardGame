@@ -13,6 +13,7 @@ public class ClientHandler implements Runnable {
     private static Logger log = Logger.getLogger(ClientHandler.class.getName());
     private static volatile List<String> merge;
     private static volatile int iteration = 0;
+    private static volatile VectorClock vectorClock;
 
     private BufferedReader in;
     private BufferedWriter out;
@@ -32,6 +33,11 @@ public class ClientHandler implements Runnable {
         this.playerNum = playerNum;
         this.maxPlayers = maxPlayers;
         this.alivePlayers = maxPlayers;
+
+        // Initialise vector clock for server (shared by all client handler threads)
+        int totalProcesses = maxPlayers + 1;
+        vectorClock = new VectorClock(totalProcesses, 0);
+        log.info("Vector clock initialised: " + vectorClock);
 
         // Initialise merge list
         merge = new ArrayList<>();
@@ -118,6 +124,11 @@ public class ClientHandler implements Runnable {
         String received; // Received message
         String message;  // Outgoing message
 
+        // Send client's process ID to them so they can initialise their vector clock
+        int totalProcesses = maxPlayers + 1;
+        message = Messages.processInfo(totalProcesses, (int) playerNum).toJSONString();
+        send(message);
+
         // Send kill probabilities to client
         message = Messages.init(killProbabilities, playerNum, killProbability).toString();
         send(message);
@@ -144,6 +155,7 @@ public class ClientHandler implements Runnable {
                     }
                 }
             }
+
         }
 
         // Close connection to client player

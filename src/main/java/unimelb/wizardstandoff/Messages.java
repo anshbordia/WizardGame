@@ -61,5 +61,12 @@ public class Messages {
         json.put("aliveplayers", alivePlayers);
         return json;
     }
+
+    public static JSONObject processInfo(int totalProcesses, int processID) {
+        JSONObject json = new JSONObject();
+        json.put("totalProcesses", totalProcesses);
+        json.put("processID", processID);
+        return json;
+    }
 }
 

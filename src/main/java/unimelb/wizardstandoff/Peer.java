@@ -16,6 +16,7 @@ public class Peer implements Runnable {
     private BufferedReader in;
     private BufferedWriter out;
     private Wizard wizard;
+    private VectorClock vectorClock;
 
     public Peer(String ip, int port) {
         // Attempt to connect to the lobby
@@ -61,6 +62,19 @@ public class Peer implements Runnable {
         return null;
     }
 
+    /**
+     * Initialise this peer's vector clock, given
+     * the total number of processes, and this peer's
+     * assigned process ID
+     * @param processInfo JSON object message containing process info
+     */
+    private void initialiseVectorClock(JSONObject processInfo) {
+        long totalProcesses = (long) processInfo.get("totalProcesses");
+        long processID = (long) processInfo.get("processID");
+        this.vectorClock = new VectorClock((int) totalProcesses, (int) processID);
+        log.info("Vector clock initialised: " + vectorClock);
+    }
+
     @Override
     public void run() {
         log.info("Starting peer thread");
@@ -68,6 +82,12 @@ public class Peer implements Runnable {
         String message;  // Outgoing message
         String command = "";
         JSONObject json;
+
+        // Initialise vector clock
+        received = receive();
+        json = Messages.strToJson(received);
+        this.initialiseVectorClock(json);
+
 
         while (!command.equals("Begin")) {
             received = receive();
@@ -88,13 +108,18 @@ public class Peer implements Runnable {
             try {
                 // Prompt player to get ready to input attack
                 log.info("Get ready to enter the player number you wish to attack! (E.g. '2' for Player 2)");
+                Thread.sleep(3000);
                 log.info("Ready?...");
                 log.info("5");
+                Thread.sleep(1000);
                 log.info("4");
+                Thread.sleep(1000);
                 log.info("3");
+                Thread.sleep(1000);
                 log.info("2");
+                Thread.sleep(1000);
                 log.info("1");
-                Thread.sleep(3000);
+                Thread.sleep(1000);
                 log.info("Attack!");
 
                 attackWho = scanner.nextInt();
@@ -134,7 +159,6 @@ public class Peer implements Runnable {
             e.printStackTrace();
         }
     }
-
 
     public static void main(String[] args) {
         System.setProperty("java.util.logging.SimpleFormatter.format",
