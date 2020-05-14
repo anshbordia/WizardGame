@@ -1,97 +1,83 @@
 package unimelb.wizardstandoff;
 
-import java.net.*;
-import java.util.Scanner;
 import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.logging.Logger;
 
-public class Lobby {
-	private Socket socket = null;
-	private ServerSocket lobby = null;
-	private BufferedReader input = null;
-	PrintWriter out = null; 
-	Scanner sc = new Scanner(System.in);
-	private Socket[] socketlist; 
-	private double[] kill_probablities;
+public class Lobby implements Runnable {
 
+    private static Logger log = Logger.getLogger(Lobby.class.getName());
 
-	public Lobby(int port) {
-		System.out.println("Enter number of players. Min:2 Max:4");
-		int total = sc.nextInt();
-		socketlist = new Socket [total];
-		kill_probablities = new double[total];
-		
-		try {
-			lobby = new ServerSocket(port);
-			
-			System.out.println("Lobby: Lobby Started! Waiting for players...");
-			int player_num = 1;
-			while(player_num < (total + 1)) {
-				socketlist[player_num - 1] = lobby.accept();
-				System.out.println("Player " + player_num + " Connected!");
-				kill_probablities[player_num - 1] = Math.random() * 0.9 + 0.05;
-				player_num += 1;
-				
-			}
-			for(int k = 0; k < total; k++ ) {
-				out = new PrintWriter(
-						new BufferedWriter(new OutputStreamWriter(
-								socketlist[k].getOutputStream(), "UTF-8")), true); 		
-				input = new BufferedReader(new InputStreamReader(socketlist[k].getInputStream(), "UTF-8"));
-				System.out.println("Assigning thread to this player");
-				ClientHandler player = new ClientHandler(socketlist[k], input, out, kill_probablities, (long)(k + 1));
-				Thread t = new Thread(player);
-				t.start();
-			}
-		}
-		catch(IOException e) {
-			try {
-				socket.close();
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			e.printStackTrace();
-		}
-	}
-	//Constructor
-	/*public Lobby(int port) {
-		try {
-			lobby = new ServerSocket(port);
-			System.out.println("Lobby: Lobby Started! Waiting for players...");
-			socket = lobby.accept();
-			System.out.println("Lobby: Peer Joined!");
-			
-			out = new PrintWriter(
-					new BufferedWriter(new OutputStreamWriter(
-							socket.getOutputStream(), "UTF-8")), true); 		
-			input = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-			
-			Wizard wizard = new Wizard(0.6);
-			String line = "";
-			
-			while (!line.equals("Attack")) 
-			{ 
-				try
-				{ 
-					line = input.readLine(); 
-					//wizard.setStatus(line);
-					System.out.println("Peer: " + line); 
-					//line = wizard.attack(wizard.hitRate); 
-					line = sc.nextLine();
-					out.println(line); 
-				} 
-				catch(IOException e) {
-					System.out.println(e);
-				}
-			}
-			System.out.println("Lobby: Closing Connection");
-			input.close();
-			out.close();
-			socket.close();
-			
-		}
-		catch(IOException e) {
-			System.out.println(e);
-		}
-	}*/
+    private int port;
+    private ServerSocket serverSocket;
+    private List<Socket> clients;
+    private List<Double> killProbabilities;
+    private int maxPlayers;
+
+    public Lobby(int port) {
+        this.port = port;
+        this.killProbabilities = new ArrayList<>();
+        this.clients = new ArrayList<>();
+
+        // Manually enter the number of players
+        System.out.println("Enter number of players (2 to 4):");
+        this.maxPlayers = new Scanner(System.in).nextInt();
+    }
+
+    @Override
+    public void run() {
+        try {
+            // Initialise the server (i.e. lobby)
+            this.serverSocket = new ServerSocket(port);
+            log.info("Lobby created! Waiting for players to join...");
+
+            // Allow up to 'maxPlayers' players to join the lobby,
+            // and assign each player with a 'killProbability'.
+            int playersJoined = 0;
+            while (playersJoined < maxPlayers) {
+                Socket clientSocket = serverSocket.accept();
+                this.clients.add(clientSocket);
+                playersJoined += 1;
+                log.info("Player " + playersJoined + " has joined the lobby");
+                double killProbability = Math.random() * 0.9 + 0.05;
+                killProbabilities.add(killProbability);
+            }
+
+            // Create and run a client handler thread for each player
+            for (int playerNum = 0; playerNum < maxPlayers; playerNum++) {
+                Socket socket = this.clients.get(playerNum);
+                BufferedReader in =
+                        new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                BufferedWriter out =
+                        new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+                ClientHandler clientHandler = new ClientHandler(in, out, killProbabilities, (long) (playerNum+1), maxPlayers);
+                Thread clientHandlerThread = new Thread(clientHandler);
+                clientHandlerThread.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (serverSocket != null) {
+                    serverSocket.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        System.setProperty("java.util.logging.SimpleFormatter.format",
+                "[%1$tc] %2$s %4$s: %5$s%n");
+
+        Lobby lobby = new Lobby(9000);
+        Thread lobbyThread = new Thread(lobby);
+        lobbyThread.start();
+    }
 }
