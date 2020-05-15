@@ -1,6 +1,7 @@
 package unimelb.wizardstandoff;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 
@@ -34,15 +35,20 @@ public class VectorClock implements Comparable<VectorClock> {
         }
     }
 
-    public VectorClock(List<Long> vectorClock) {
+    public VectorClock(List<Long> timestamps) {
+        this.timestamps = timestamps;
     }
 
     public void onSend() {
         incrementLocalTimestamp();
     }
 
-    public void onReceive(VectorClock vectorClock) {
-        this.timestamps = getMax(this, vectorClock);
+    public void onReceive(VectorClock other) {
+        this.timestamps = getMax(this, other);
+        incrementLocalTimestamp();
+    }
+
+    public void onInternalEvent() {
         incrementLocalTimestamp();
     }
 
@@ -80,7 +86,7 @@ public class VectorClock implements Comparable<VectorClock> {
         return tsMax;
     }
 
-    private List<Long> getTimestamps() {
+    public List<Long> getTimestamps() {
         // Return a copy
         return new ArrayList<>(this.timestamps);
     }
@@ -116,8 +122,33 @@ public class VectorClock implements Comparable<VectorClock> {
         System.out.println(json.toJSONString());
         System.out.println(json.toString());
 
-
         VectorClock vc1 = new VectorClock(2, 0);
         VectorClock vc2 = new VectorClock(2, 1);
+
+        List<Long> timestamps = vc1.getTimestamps();
+        JSONArray a = new JSONArray();
+        a.addAll(timestamps);
+
+        System.out.println(a.toJSONString());
+
+
+
+        List<Double> probs = new ArrayList<>();
+        probs.add(0.2);
+        probs.add(0.8);
+        JSONObject j = Messages.init(probs, (long) 0, 0.2, vc1);
+        String m = j.toJSONString();
+        System.out.println("M = " + m);
+
+        JSONObject j_prime = Messages.strToJson(m);
+        JSONArray tsJson = (JSONArray) j_prime.get("vectorClock");
+        List<Long> ts = new ArrayList<>(tsJson);
+        System.out.println(j_prime);
+        System.out.println("Timestamps: " + ts);
+
+
+
     }
+
+
 }

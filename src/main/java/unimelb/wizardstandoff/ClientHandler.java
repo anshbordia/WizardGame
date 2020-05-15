@@ -1,5 +1,8 @@
 package unimelb.wizardstandoff;
 
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -106,12 +109,22 @@ public class ClientHandler implements Runnable {
     private String receive() {
         String message;
         try {
+            // Receive message
             log.info("Waiting to receive message");
             message = in.readLine();
             log.info("Received message " + message);
+
+            // Update local vector clock, given the
+            // vector clock from the sender's message
+            if (vectorClock != null) {
+                JSONObject json = Messages.strToJson(message);
+                JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
+                List<Long> timestamps = new ArrayList<>(timestampsJson);
+                VectorClock other = new VectorClock(timestamps);
+                vectorClock.onReceive(other);
+            }
             return message;
         } catch (IOException e) {
-            log.warning("Exception here");
             e.printStackTrace();
         }
         log.warning("Returning null message");
@@ -130,7 +143,7 @@ public class ClientHandler implements Runnable {
         send(message);
 
         // Send kill probabilities to client
-        message = Messages.init(killProbabilities, playerNum, killProbability).toString();
+        message = Messages.init(killProbabilities, playerNum, killProbability, vectorClock).toString();
         send(message);
 
         // Main loop of the game
@@ -145,7 +158,7 @@ public class ClientHandler implements Runnable {
                 iteration += 1;
 
                 // Send feedback to the player
-                message = Messages.feedback(deadPlayers, alivePlayers).toString();
+                message = Messages.feedback(deadPlayers, alivePlayers, vectorClock).toString();
                 send(message);
 
                 if (alivePlayers < 2) {

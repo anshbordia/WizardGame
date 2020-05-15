@@ -1,10 +1,13 @@
 package unimelb.wizardstandoff;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.logging.Logger;
 
@@ -36,6 +39,7 @@ public class Peer implements Runnable {
      */
     private void send(String message) {
         try {
+            // Send message
             log.info("Sending message " + message);
             out.write(message + '\n');
             out.flush();
@@ -47,13 +51,25 @@ public class Peer implements Runnable {
     /**
      * Receive incoming messages from the input buffer. Note
      * this blocks until a message is received
+     * @return received message
      */
     private String receive() {
         String message;
         try {
+            // Receive message
             log.info("Waiting to receive message");
             message = in.readLine();
             log.info("Received message " + message);
+
+            // Update local vector clock, given the
+            // vector clock from the sender's message
+            if (vectorClock != null) {
+                JSONObject json = Messages.strToJson(message);
+                JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
+                List<Long> timestamps = new ArrayList<>(timestampsJson);
+                VectorClock other = new VectorClock(timestamps);
+                vectorClock.onReceive(other);
+            }
             return message;
         } catch (IOException e) {
             e.printStackTrace();
@@ -127,7 +143,7 @@ public class Peer implements Runnable {
                 success = wizard.attack();
 
                 // Send attack command to server
-                message = Messages.sendAttack(attackWho, time, success, wizard.getWizardNum()).toString();
+                message = Messages.sendAttack(attackWho, time, success, wizard.getWizardNum(), vectorClock).toString();
                 send(message);
 
                 // Receive response from server
