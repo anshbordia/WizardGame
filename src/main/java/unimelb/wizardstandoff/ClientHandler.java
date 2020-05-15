@@ -136,6 +136,8 @@ public class ClientHandler implements Runnable {
     public void run() {
         String received; // Received message
         String message;  // Outgoing message
+        String command = "";  // Command
+        JSONObject json;
 
         // Send client's process ID to them so they can initialise their vector clock
         int totalProcesses = maxPlayers + 1;
@@ -147,9 +149,13 @@ public class ClientHandler implements Runnable {
         send(message);
 
         // Main loop of the game
-        while (!(received = receive()).equals("Over")) {
+        while (!command.equals("Over")) {
+            received = receive();
+            json = Messages.strToJson(received);
+            command = json.get("command").toString();
+
             List<Long> deadPlayers;
-            if (!received.equals("Over")) {
+            if (!command.equals("Over")) {
                 merge.add(received);
                 log.info("Merge: " + playerNum + ": " + merge.toString());
                 do {
@@ -168,7 +174,6 @@ public class ClientHandler implements Runnable {
                     }
                 }
             }
-
         }
 
         // Close connection to client player

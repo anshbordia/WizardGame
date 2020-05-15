@@ -153,12 +153,14 @@ public class Peer implements Runnable {
                 boolean deadOrAlive = Helper.processFeedback(received, wizard.getWizardNum());
                 if (deadOrAlive) {
                     wizard.setStatus();
-                    send("Over");
+                    message = Messages.over(vectorClock).toString();
+                    send(message);
                 } else {
                     if (Helper.amIwinner(received)) {
                         log.info("You are the winner!");
                         wizard.setStatus();
-                        send("Over");
+                        message = Messages.over(vectorClock).toString();
+                        send(message);
                     }
                 }
             } catch (InterruptedException e) {

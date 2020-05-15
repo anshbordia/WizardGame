@@ -35,7 +35,14 @@ public class Helper {
         json = Messages.strToJson(mergelist.get(index));
         long timestamp = (long) json.get("timestamp");
         return timestamp;
+    }
 
+    public static VectorClock getVectorClock(List<String> mergelist, int index) {
+        JSONObject json = Messages.strToJson(mergelist.get(index));
+        JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
+        List<Long> timestamps = new ArrayList<>(timestampsJson);
+        VectorClock vectorClock = new VectorClock(timestamps);
+        return vectorClock;
     }
 
     public static boolean getSuccess(List<String> mergelist, int index) {
@@ -74,7 +81,14 @@ public class Helper {
         for(int i = 0; i < mergelist.size(); i++) {
             int bestIndex = i;
             for(int j = i + 1; j < mergelist.size(); j++) {
-                if(Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
+                /*
+                VectorClock vc1 = Helper.getVectorClock(mergelist, j);
+                VectorClock vc2 = Helper.getVectorClock(mergelist, bestIndex);
+                if (vc1.compareTo(vc2) == -1) {
+                    bestIndex = j;
+                    continue;
+                }*/
+                if (Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
                     bestIndex = j;
                 }
             }

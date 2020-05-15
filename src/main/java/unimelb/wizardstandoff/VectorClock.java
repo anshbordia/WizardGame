@@ -3,6 +3,7 @@ package unimelb.wizardstandoff;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.logging.Logger;
 
 
 import org.json.simple.JSONArray;
@@ -18,7 +19,9 @@ import org.json.simple.parser.ParseException;
  *     and value received in message
  */
 
-public class VectorClock implements Comparable<VectorClock> {
+public class VectorClock {
+
+    private static Logger log = Logger.getLogger(VectorClock.class.getName());
 
     private int N;
     private int processID;
@@ -60,13 +63,41 @@ public class VectorClock implements Comparable<VectorClock> {
     /**
      * Used to compare one vector clock with another
      * using '<', '=' and '>' operators
-     * @param vectorClock vector clock
-     * @return -1, 0, 1 for less than, equal, greater than
+     * @param other vector clock
+     * @return -1, 0, 1, null for less than, equal to, greater than, asynchronous
      */
-    @Override
-    public int compareTo(VectorClock vectorClock) {
-        // TODO: Implement interface
-        return 0;
+    public Integer compareTo(VectorClock other) {
+        List<Long> ts1 = this.getTimestamps();
+        List<Long> ts2 = other.getTimestamps();
+        if (ts1.size() != ts2.size()) {
+            log.warning("Vector clock sizes do not match!");
+        }
+        // Check equality
+        if (ts1.equals(ts2)) {
+            return 0;
+        }
+        // Check less than
+        boolean lessThan = true;
+        for (int i = 0; i < ts1.size(); i++) {
+            if (ts1.get(i) > ts2.get(i)) {
+                lessThan = false;
+            }
+        }
+        if (lessThan) {
+            return -1;
+        }
+        // Check greater than
+        boolean greaterThan = true;
+        for (int i = 0; i < ts1.size(); i++) {
+            if (ts1.get(i) < ts2.get(i)) {
+                greaterThan = false;
+            }
+        }
+        if (greaterThan) {
+            return 1;
+        }
+        // Otherwise, vector clocks are asynchronous
+        return null;
     }
 
     /**
@@ -87,7 +118,7 @@ public class VectorClock implements Comparable<VectorClock> {
     }
 
     public List<Long> getTimestamps() {
-        // Return a copy
+        // Return a copy to ensure no external mutation
         return new ArrayList<>(this.timestamps);
     }
 
@@ -101,7 +132,7 @@ public class VectorClock implements Comparable<VectorClock> {
     }
 
 
-    // Entry point for debugging only
+    // Entry point for debugging only (ignore this code, will delete later)
     public static void main(String[] args) {
         int maxPlayers = 4;
         int playerNum = 4;
@@ -147,8 +178,17 @@ public class VectorClock implements Comparable<VectorClock> {
         System.out.println("Timestamps: " + ts);
 
 
+        List<Long> ls1 = new ArrayList<>();
+        ls1.add((long) 2);
+        ls1.add((long) 3);
+
+        List<Long> ls2 = new ArrayList<>();
+        ls2.add((long) 2);
+        ls2.add((long) 3);
+
+        System.out.println("ls1 = " + ls1);
+        System.out.println("ls2 = " + ls2);
+        System.out.println(ls1.equals(ls2));
 
     }
-
-
 }
