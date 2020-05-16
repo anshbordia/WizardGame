@@ -9,7 +9,7 @@ import org.json.simple.parser.ParseException;
 
 public class Messages {
 
-    public static JSONObject init(List<Double> probs, long playernum, double your_prob, VectorClock vectorClock) {
+    public static synchronized JSONObject init(List<Double> probs, long playernum, double your_prob, VectorClock vectorClock) {
         JSONObject json = new JSONObject();
         json.put("command", "Begin");
         json.put("yourprob", your_prob);
@@ -19,7 +19,6 @@ public class Messages {
         }
         json.put("probs", prob);
         json.put("playernum", (long) playernum);
-
         vectorClock.onSend();
         JSONArray timestamps = new JSONArray();
         timestamps.addAll(vectorClock.getTimestamps());
@@ -33,19 +32,19 @@ public class Messages {
         try {
             json = (JSONObject) parser.parse(jsonstring);
         } catch (ParseException e) {
+            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return json;
     }
 
-    public static JSONObject sendAttack(long x, long timestamp, boolean success, long who, VectorClock vectorClock) {
+    public static synchronized JSONObject sendAttack(long x, long timestamp, boolean success, long who, VectorClock vectorClock) {
         JSONObject json = new JSONObject();
         json.put("command", "Attack");
         json.put("attacked", (long) x);
         json.put("timestamp", timestamp);
         json.put("success", success);
         json.put("who", who);
-
         vectorClock.onSend();
         JSONArray timestamps = new JSONArray();
         timestamps.addAll(vectorClock.getTimestamps());
@@ -53,10 +52,9 @@ public class Messages {
         return json;
     }
 
-    public static JSONObject winner(VectorClock vectorClock) {
+    public static synchronized JSONObject winner(VectorClock vectorClock) {
         JSONObject json = new JSONObject();
         json.put("command", "Winner");
-
         vectorClock.onSend();
         JSONArray timestamps = new JSONArray();
         timestamps.addAll(vectorClock.getTimestamps());
@@ -64,7 +62,7 @@ public class Messages {
         return json;
     }
 
-    public static JSONObject feedback(List<Long> deadPlayers, long alivePlayers, VectorClock vectorClock) {
+    public static synchronized JSONObject feedback(List<Long> deadPlayers, long alivePlayers, VectorClock vectorClock, boolean specialAttack) {
         JSONObject json = new JSONObject();
         JSONArray deadList = new JSONArray();
         for (int i = 0; i < deadPlayers.size(); i++) {
@@ -73,16 +71,15 @@ public class Messages {
         json.put("command", "Feedback");
         json.put("dead", deadList);
         json.put("aliveplayers", alivePlayers);
-
         vectorClock.onSend();
         JSONArray timestamps = new JSONArray();
         timestamps.addAll(vectorClock.getTimestamps());
         json.put("vectorClock", timestamps);
+        json.put("specialattack", specialAttack);
         return json;
     }
-
-
-    public static JSONObject over(VectorClock vectorClock) {
+    
+    public static synchronized JSONObject over(VectorClock vectorClock) {
         JSONObject json = new JSONObject();
         json.put("command", "Over");
 

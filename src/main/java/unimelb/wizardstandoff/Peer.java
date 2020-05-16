@@ -3,13 +3,20 @@ package unimelb.wizardstandoff;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
+
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
+
 
 public class Peer implements Runnable {
 
@@ -20,6 +27,11 @@ public class Peer implements Runnable {
     private BufferedWriter out;
     private Wizard wizard;
     private VectorClock vectorClock;
+    private long startTime;
+    private long endTime;
+    private SimpleTimeLimiter limiter = SimpleTimeLimiter.create(Executors.newSingleThreadExecutor());
+    private boolean disconnected = false;
+    private boolean specialAttack = false;
 
     public Peer(String ip, int port) {
         // Attempt to connect to the lobby
@@ -39,7 +51,6 @@ public class Peer implements Runnable {
      */
     private void send(String message) {
         try {
-            // Send message
             log.info("Sending message " + message);
             out.write(message + '\n');
             out.flush();
@@ -51,17 +62,14 @@ public class Peer implements Runnable {
     /**
      * Receive incoming messages from the input buffer. Note
      * this blocks until a message is received
-     * @return received message
      */
-    private String receive() {
+    private synchronized String receive() {
         String message;
         try {
-            // Receive message
             log.info("Waiting to receive message");
             message = in.readLine();
             log.info("Received message " + message);
-
-            // Update local vector clock, given the
+         // Update local vector clock, given the
             // vector clock from the sender's message
             if (vectorClock != null) {
                 JSONObject json = Messages.strToJson(message);
@@ -137,20 +145,36 @@ public class Peer implements Runnable {
                 log.info("1");
                 Thread.sleep(1000);
                 log.info("Attack!");
-
+                
+                
+                startTime = System.currentTimeMillis();
                 attackWho = scanner.nextInt();
+                vectorClock.onInternalEvent();
                 time = Helper.getTime();
-                success = wizard.attack();
-
+                if(specialAttack) {
+                	success = true;
+                }
+                else {
+                	success = wizard.attack();
+                }
                 // Send attack command to server
                 message = Messages.sendAttack(attackWho, time, success, wizard.getWizardNum(), vectorClock).toString();
                 send(message);
-
+                endTime = System.currentTimeMillis();
+                if((endTime - startTime) > 35000) {
+                	log.info("Damn it I was disconnected :(");
+                	wizard.setStatus();
+                	break;
+                }
+             
                 // Receive response from server
                 received = receive();
                 log.info("Received from lobby message " + message);
 
                 boolean deadOrAlive = Helper.processFeedback(received, wizard.getWizardNum());
+                specialAttack = Helper.canIspecialAttack(received);
+             
+                System.out.println("Special Attack:" + specialAttack);
                 if (deadOrAlive) {
                     wizard.setStatus();
                     message = Messages.over(vectorClock).toString();

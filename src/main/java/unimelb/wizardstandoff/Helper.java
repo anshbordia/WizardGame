@@ -35,8 +35,9 @@ public class Helper {
         json = Messages.strToJson(mergelist.get(index));
         long timestamp = (long) json.get("timestamp");
         return timestamp;
-    }
 
+    }
+    
     public static VectorClock getVectorClock(List<String> mergelist, int index) {
         JSONObject json = Messages.strToJson(mergelist.get(index));
         JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
@@ -76,19 +77,20 @@ public class Helper {
         return false;
     }
 
+    
     public static List<String> sortList(List<String> mergelist) {
         //List<String> sortAL = new List<String>();
         for(int i = 0; i < mergelist.size(); i++) {
             int bestIndex = i;
             for(int j = i + 1; j < mergelist.size(); j++) {
-                /*
+            	 /*
                 VectorClock vc1 = Helper.getVectorClock(mergelist, j);
                 VectorClock vc2 = Helper.getVectorClock(mergelist, bestIndex);
                 if (vc1.compareTo(vc2) == -1) {
                     bestIndex = j;
                     continue;
                 }*/
-                if (Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
+                if(Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
                     bestIndex = j;
                 }
             }
@@ -121,5 +123,20 @@ public class Helper {
         System.out.println("C4");
         return false;
 
+    }
+    
+    public static boolean canIspecialAttack(String feedback) {
+    	JSONObject json = new JSONObject();
+        json = Messages.strToJson(feedback);
+        boolean specialAttack = (boolean) json.get("specialattack");
+        return specialAttack;
+     	
+    }
+    
+    public static VectorClock getVC(String received) {
+    	JSONObject json = new JSONObject();
+        json = Messages.strToJson(received);
+        VectorClock vc = (VectorClock) json.get("vectorClock");
+        return vc;
     }
 }
