@@ -1,22 +1,31 @@
 package unimelb.wizardstandoff;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 public class ClientHandler implements Runnable {
 
     private static Logger log = Logger.getLogger(ClientHandler.class.getName());
     private static volatile List<String> merge;
+    private static volatile List<Long> disconnectedPlayers;
     private static volatile int iteration = 0;
     private static volatile VectorClock vectorClock;
+    public static volatile int sharedAlive;
 
     private BufferedReader in;
     private BufferedWriter out;
@@ -26,7 +35,9 @@ public class ClientHandler implements Runnable {
     private int maxPlayers;
     private int alivePlayers;
     private List<Wizard> wizards;
-
+    private SimpleTimeLimiter limiter = SimpleTimeLimiter.create(Executors.newSingleThreadExecutor());
+    private int specialAttackCtr = 0;
+    private boolean specialAttack = false;
 
     public ClientHandler(BufferedReader in, BufferedWriter out, List<Double> killProbabilities, long playerNum, int maxPlayers) {
         this.in = in;
@@ -36,6 +47,7 @@ public class ClientHandler implements Runnable {
         this.playerNum = playerNum;
         this.maxPlayers = maxPlayers;
         this.alivePlayers = maxPlayers;
+        sharedAlive = maxPlayers;
 
         // Initialise vector clock for server (shared by all client handler threads)
         int totalProcesses = maxPlayers + 1;
@@ -44,6 +56,8 @@ public class ClientHandler implements Runnable {
 
         // Initialise merge list
         merge = new ArrayList<>();
+        
+        disconnectedPlayers = new ArrayList<>();
 
         // Initialise wizards list
         this.wizards = new ArrayList<>();
@@ -59,11 +73,17 @@ public class ClientHandler implements Runnable {
      * @param merge merge list
      * @return list of dead players (numbers)
      */
-    private List<Long> gameLogic(List<String> merge) {
-        if (merge.size() < this.alivePlayers) {
+    private List<Long> gameLogic(List<String> merge, List<Long> disconnectedPlayers) {
+        if (merge.size() < sharedAlive) {
             return null;
         }
         List<Long> deadPlayers = new ArrayList<>();
+        if(disconnectedPlayers.size() > 0) {
+        	for(int i = 0; i < disconnectedPlayers.size(); i++) {
+        		deadPlayers.add(disconnectedPlayers.get(i));
+        		alivePlayers--;
+        	}
+        }
         merge = Helper.sortList(merge);
         log.info("Sorted merge: " + merge.toString());
 
@@ -73,16 +93,16 @@ public class ClientHandler implements Runnable {
             if (attackingWizard.getStatus() == 1) {
                 if (Helper.getSuccess(merge, i)) {
                     long attacked = Helper.attackedWho(merge, i);
-                    Wizard attackedWizard = wizards.get((int) attacked-1);
-                    attackedWizard.setStatus();
-                    deadPlayers.add(attacked);
-                    alivePlayers--;
+                    if(wizards.get((int) attacked-1).getStatus() == 1) {
+                    	wizards.get((int) attacked-1).setStatus();
+                    	deadPlayers.add(attacked);
+                    	alivePlayers--;
+                    }
                 }
             }
         }
 
-        // Reset merge list
-        merge = new ArrayList<>();
+        
 
         log.info("Dead players: " + deadPlayers.toString());
         return deadPlayers;
@@ -106,16 +126,12 @@ public class ClientHandler implements Runnable {
      * Receive incoming messages from the input buffer.
      * Note that this blocks until a message is received
      */
-    private String receive() {
+    private synchronized String receive() {
         String message;
         try {
-            // Receive message
             log.info("Waiting to receive message");
             message = in.readLine();
             log.info("Received message " + message);
-
-            // Update local vector clock, given the
-            // vector clock from the sender's message
             if (vectorClock != null) {
                 JSONObject json = Messages.strToJson(message);
                 JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
@@ -125,20 +141,32 @@ public class ClientHandler implements Runnable {
             }
             return message;
         } catch (IOException e) {
+            log.warning("Exception here");
             e.printStackTrace();
         }
         log.warning("Returning null message");
         return null;
     }
-
+    
+    private synchronized String receive2(String message) {
+        log.info("Received message " + message);
+		if (vectorClock != null) {
+		    JSONObject json = Messages.strToJson(message);
+		    JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
+		    List<Long> timestamps = new ArrayList<>(timestampsJson);
+		    VectorClock other = new VectorClock(timestamps);
+		    vectorClock.onReceive(other);
+		}
+		return message;
+    }
 
     @Override
     public void run() {
-        String received; // Received message
-        String message;  // Outgoing message
+        String received = ""; // Received message
+        String message = "";  // Outgoing message
         String command = "";  // Command
         JSONObject json;
-
+        boolean disconnected = false;
         // Send client's process ID to them so they can initialise their vector clock
         int totalProcesses = maxPlayers + 1;
         message = Messages.processInfo(totalProcesses, (int) playerNum).toJSONString();
@@ -150,36 +178,69 @@ public class ClientHandler implements Runnable {
 
         // Main loop of the game
         while (!command.equals("Over")) {
-            received = receive();
-            json = Messages.strToJson(received);
-            command = json.get("command").toString();
-
-            List<Long> deadPlayers;
-            if (!command.equals("Over")) {
+        	specialAttackCtr += 1;
+        	if((((specialAttackCtr - 1) % maxPlayers) + 1) == playerNum) {
+        		specialAttack = true;
+        	}
+        	else {
+        		specialAttack = false;
+        	}
+        	sharedAlive = this.alivePlayers;
+        	// Reset merge list
+            merge = new ArrayList<>();
+            List<Long> deadPlayers = new ArrayList<Long>();
+            disconnectedPlayers = new ArrayList<Long>();
+            try {
+            	log.info("Waiting to receive message");
+                received = limiter.callWithTimeout(in::readLine, 60, TimeUnit.SECONDS);
+            } catch (TimeoutException | UncheckedTimeoutException e) {
+                System.out.println("This player has timedout");
+                //vectorClock.onInternalEvent();
+                disconnected = true;
+            } catch (Exception e) {
+                // something bad happened while reading the line
+            }
+            if(disconnected) {
+            	wizards.get((int) (playerNum - 1)).setStatus();
+            	sharedAlive = sharedAlive - 1;
+            	disconnectedPlayers.add(playerNum);
+            	break;
+            }
+            else {
+            	receive2(received);
+            	json = Messages.strToJson(received);
+            	command = json.get("command").toString();
+            }
+            //received = receive();
+            if (!command.equals("Over") && !command.equals("")) {
                 merge.add(received);
                 log.info("Merge: " + playerNum + ": " + merge.toString());
                 do {
-                    deadPlayers = gameLogic(merge);
+                    deadPlayers = gameLogic(merge, disconnectedPlayers);
                 } while (deadPlayers == null);
                 iteration += 1;
 
                 // Send feedback to the player
-                message = Messages.feedback(deadPlayers, alivePlayers, vectorClock).toString();
+                message = Messages.feedback(deadPlayers, alivePlayers, vectorClock, specialAttack).toString();
                 send(message);
 
                 if (alivePlayers < 2) {
                     Wizard wizard = wizards.get((int) playerNum-1);
                     if (wizard.getStatus() == 1) {
                         log.info("Player " + playerNum + " wins!");
+                        vectorClock.onInternalEvent();
                     }
                 }
             }
+           
+
         }
 
         // Close connection to client player
         log.info("Closing connection to Player " + playerNum);
         try {
             if (in != null && out != null) {
+            	vectorClock.onInternalEvent();
                 in.close();
                 out.close();
             }

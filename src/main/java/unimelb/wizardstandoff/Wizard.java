@@ -37,7 +37,7 @@ public class Wizard {
     public boolean attack() {
         Random rand = new Random();
         double prob = rand.nextDouble();
-        if (prob > hitRate) {
+        if (prob > 0.1) {
             return false;
         }
         return true;
