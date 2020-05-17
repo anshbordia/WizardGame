@@ -78,23 +78,28 @@ public class Helper {
     }
 
     
-    public static List<String> sortList(List<String> mergelist) {
+    public static List<String> sortList(List<String> mergelist, List<VectorClock> vcMerge) {
         //List<String> sortAL = new List<String>();
-        for(int i = 0; i < mergelist.size(); i++) {
+        for(int i = 0; i < vcMerge.size(); i++) {
             int bestIndex = i;
-            for(int j = i + 1; j < mergelist.size(); j++) {
-            	 /*
-                VectorClock vc1 = Helper.getVectorClock(mergelist, j);
-                VectorClock vc2 = Helper.getVectorClock(mergelist, bestIndex);
+            for(int j = i + 1; j < vcMerge.size(); j++) {
+                //VectorClock vc1 = Helper.getVectorClock(mergelist, j);
+                //VectorClock vc2 = Helper.getVectorClock(mergelist, bestIndex);
+            	VectorClock vc1 = vcMerge.get(j);
+            	VectorClock vc2 = vcMerge.get(bestIndex);
                 if (vc1.compareTo(vc2) == -1) {
                     bestIndex = j;
                     continue;
-                }*/
-                if(Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
-                    bestIndex = j;
                 }
+                /*if(Helper.getTimestamp(mergelist, j) < Helper.getTimestamp(mergelist, bestIndex)) {
+                    bestIndex = j;
+                }*/
             }
             //sortAL.add(mergelist.get(bestIndex));
+            VectorClock tempVC = vcMerge.get(i);
+            vcMerge.set(i, vcMerge.get(bestIndex));
+            vcMerge.set(bestIndex, tempVC);
+            
             String temp = mergelist.get(i);
             mergelist.set(i, mergelist.get(bestIndex));
             mergelist.set(bestIndex, temp);
