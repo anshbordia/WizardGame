@@ -22,6 +22,7 @@ public class ClientHandler implements Runnable {
 
     private static Logger log = Logger.getLogger(ClientHandler.class.getName());
     private static volatile List<String> merge;
+    private static volatile List<VectorClock> vcMerge;
     private static volatile List<Long> disconnectedPlayers;
     private static volatile int iteration = 0;
     private static volatile VectorClock vectorClock;
@@ -57,6 +58,9 @@ public class ClientHandler implements Runnable {
         // Initialise merge list
         merge = new ArrayList<>();
         
+        //Initialise vcMerge list
+        vcMerge = new ArrayList<>();
+        
         disconnectedPlayers = new ArrayList<>();
 
         // Initialise wizards list
@@ -73,7 +77,7 @@ public class ClientHandler implements Runnable {
      * @param merge merge list
      * @return list of dead players (numbers)
      */
-    private List<Long> gameLogic(List<String> merge, List<Long> disconnectedPlayers) {
+    private List<Long> gameLogic(List<String> merge, List<Long> disconnectedPlayers, List<VectorClock> vcMerge) {
         if (merge.size() < sharedAlive) {
             return null;
         }
@@ -84,7 +88,7 @@ public class ClientHandler implements Runnable {
         		alivePlayers--;
         	}
         }
-        merge = Helper.sortList(merge);
+        merge = Helper.sortList(merge, vcMerge);
         log.info("Sorted merge: " + merge.toString());
 
         for (int i = 0; i < merge.size(); i++) {
@@ -159,6 +163,12 @@ public class ClientHandler implements Runnable {
 		}
 		return message;
     }
+    
+    private synchronized void store(String message) {
+    	merge.add(message);
+        log.info("Merge: " + playerNum + ": " + merge.toString());
+        vcMerge.add(vectorClock);
+    }
 
     @Override
     public void run() {
@@ -188,6 +198,7 @@ public class ClientHandler implements Runnable {
         	sharedAlive = this.alivePlayers;
         	// Reset merge list
             merge = new ArrayList<>();
+            vcMerge = new ArrayList<>();
             List<Long> deadPlayers = new ArrayList<Long>();
             disconnectedPlayers = new ArrayList<Long>();
             try {
@@ -213,10 +224,9 @@ public class ClientHandler implements Runnable {
             }
             //received = receive();
             if (!command.equals("Over") && !command.equals("")) {
-                merge.add(received);
-                log.info("Merge: " + playerNum + ": " + merge.toString());
+            	store(received);
                 do {
-                    deadPlayers = gameLogic(merge, disconnectedPlayers);
+                    deadPlayers = gameLogic(merge, disconnectedPlayers, vcMerge);
                 } while (deadPlayers == null);
                 iteration += 1;
 
