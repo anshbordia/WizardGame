@@ -1,4 +1,4 @@
-package unimelb.wizardstandoff;
+package unimelb.utilities;
 
 import java.util.List;
 
@@ -97,4 +97,3 @@ public class Messages {
         return json;
     }
 }
-

@@ -1,4 +1,4 @@
-package unimelb.wizardstandoff;
+package unimelb.core;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -18,6 +18,12 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 
+import javafx.application.Platform;
+import unimelb.application.StartLobby;
+import unimelb.utilities.Helper;
+import unimelb.utilities.Messages;
+import unimelb.utilities.VectorClock;
+
 public class ClientHandler implements Runnable {
 
     private static Logger log = Logger.getLogger(ClientHandler.class.getName());
@@ -27,6 +33,9 @@ public class ClientHandler implements Runnable {
     private static volatile int iteration = 0;
     private static volatile VectorClock vectorClock;
     public static volatile int sharedAlive;
+    
+    private String received = ""; // Received message
+    private String message = "";  // Outgoing message
 
     private BufferedReader in;
     private BufferedWriter out;
@@ -134,8 +143,12 @@ public class ClientHandler implements Runnable {
         String message;
         try {
             log.info("Waiting to receive message");
+            Platform.runLater(() -> StartLobby.getController().addLog("Waiting to receive message"));
+            Platform.runLater(() -> StartLobby.getController().updateLog());
             message = in.readLine();
             log.info("Received message " + message);
+            Platform.runLater(() -> StartLobby.getController().addLog("Received message " + message));
+            Platform.runLater(() -> StartLobby.getController().updateLog());
             if (vectorClock != null) {
                 JSONObject json = Messages.strToJson(message);
                 JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
@@ -154,6 +167,8 @@ public class ClientHandler implements Runnable {
     
     private synchronized String receive2(String message) {
         log.info("Received message " + message);
+        Platform.runLater(() -> StartLobby.getController().addLog("Received message " + message));
+        Platform.runLater(() -> StartLobby.getController().updateLog());
 		if (vectorClock != null) {
 		    JSONObject json = Messages.strToJson(message);
 		    JSONArray timestampsJson = (JSONArray) json.get("vectorClock");
@@ -167,13 +182,14 @@ public class ClientHandler implements Runnable {
     private synchronized void store(String message) {
     	merge.add(message);
         log.info("Merge: " + playerNum + ": " + merge.toString());
+        Platform.runLater(() -> StartLobby.getController().addLog("Merge: " + playerNum + ": " + merge.toString()));
+        Platform.runLater(() -> StartLobby.getController().updateLog());
         vcMerge.add(vectorClock);
     }
 
     @Override
     public void run() {
-        String received = ""; // Received message
-        String message = "";  // Outgoing message
+
         String command = "";  // Command
         JSONObject json;
         boolean disconnected = false;
@@ -181,10 +197,13 @@ public class ClientHandler implements Runnable {
         int totalProcesses = maxPlayers + 1;
         message = Messages.processInfo(totalProcesses, (int) playerNum).toJSONString();
         send(message);
-
+        Platform.runLater(() -> StartLobby.getController().addLog("Send to Client: " + message));
+        Platform.runLater(() -> StartLobby.getController().updateLog());
         // Send kill probabilities to client
         message = Messages.init(killProbabilities, playerNum, killProbability, vectorClock).toString();
         send(message);
+        Platform.runLater(() -> StartLobby.getController().addLog("Send to Client: " + message));
+        Platform.runLater(() -> StartLobby.getController().updateLog());
 
         // Main loop of the game
         while (!command.equals("Over")) {
@@ -219,6 +238,8 @@ public class ClientHandler implements Runnable {
             }
             else {
             	receive2(received);
+                Platform.runLater(() -> StartLobby.getController().addLog("Received from Client: " + received));
+                Platform.runLater(() -> StartLobby.getController().updateLog());
             	json = Messages.strToJson(received);
             	command = json.get("command").toString();
             }

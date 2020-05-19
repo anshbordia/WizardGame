@@ -1,4 +1,4 @@
-package unimelb.wizardstandoff;
+package unimelb.core;
 
 import java.util.Random;
 
@@ -37,7 +37,7 @@ public class Wizard {
     public boolean attack() {
         Random rand = new Random();
         double prob = rand.nextDouble();
-        if (prob > 0.1) {
+        if (prob > this.hitRate) {
             return false;
         }
         return true;
