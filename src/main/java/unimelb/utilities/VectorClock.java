@@ -1,4 +1,4 @@
-package unimelb.wizardstandoff;
+package main.java.unimelb.utilities;
 
 import java.util.ArrayList;
 import java.util.Collection;
