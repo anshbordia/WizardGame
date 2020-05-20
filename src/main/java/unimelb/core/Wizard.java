@@ -4,9 +4,9 @@ import java.util.Random;
 
 public class Wizard {
 
-    private int status;
+    private int status;  // Alive = 1; Dead = 0
     private long wizardNum;
-    private double hitRate;
+    private double hitRate;  // Probability of hitting a player
 
     public Wizard(double hitRate, long wizardNum) {
         this.status = 1;
