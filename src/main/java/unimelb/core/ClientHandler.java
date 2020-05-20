@@ -27,11 +27,10 @@ import main.java.unimelb.utilities.VectorClock;
 public class ClientHandler implements Runnable {
 
     private static Logger log = Logger.getLogger(ClientHandler.class.getName());
-    private static volatile List<String> merge;
-    private static volatile List<VectorClock> vcMerge;
+    private static volatile List<String> merge;  // List of player attacks in each round 
+    private static volatile List<VectorClock> vcMerge; // List of vector clocks corresponding to player attacks in each round
     private static volatile List<Long> disconnectedPlayers;
-    private static volatile int iteration = 0;
-    private static volatile VectorClock vectorClock;
+    private static volatile VectorClock vectorClock; // Vector clock for the server (lobby)
     public static volatile int sharedAlive;
     
     private String received = ""; // Received message
@@ -59,20 +58,20 @@ public class ClientHandler implements Runnable {
         this.alivePlayers = maxPlayers;
         sharedAlive = maxPlayers;
 
-        // Initialise vector clock for server (shared by all client handler threads)
+        // Initialize vector clock for server (shared by all client handler threads)
         int totalProcesses = maxPlayers + 1;
         vectorClock = new VectorClock(totalProcesses, 0);
         log.info("Vector clock initialised: " + vectorClock);
 
-        // Initialise merge list
+        // Initialize merge list
         merge = new ArrayList<>();
         
-        //Initialise vcMerge list
+        //Initialize vcMerge list
         vcMerge = new ArrayList<>();
         
         disconnectedPlayers = new ArrayList<>();
 
-        // Initialise wizards list
+        // Initialize wizards list
         this.wizards = new ArrayList<>();
         for (int i = 0; i < maxPlayers; i++) {
             Wizard wizard = new Wizard(killProbabilities.get(i), i+1);
@@ -87,6 +86,7 @@ public class ClientHandler implements Runnable {
      * @return list of dead players (numbers)
      */
     private List<Long> gameLogic(List<String> merge, List<Long> disconnectedPlayers, List<VectorClock> vcMerge) {
+    	// Wait until response from all alive players received
         if (merge.size() < sharedAlive) {
             return null;
         }
@@ -97,9 +97,14 @@ public class ClientHandler implements Runnable {
         		alivePlayers--;
         	}
         }
+        // Sort attacks based on vector clocks
         merge = Helper.sortList(merge, vcMerge);
         log.info("Sorted merge: " + merge.toString());
 
+        /*For every attack in sorted list of attacks:
+         * If attacker is alive and attack is successful:
+         * Kill attacked player if it is alive.
+         */
         for (int i = 0; i < merge.size(); i++) {
             long attacker = Helper.getAttacker(merge, i);
             Wizard attackingWizard = wizards.get((int) attacker-1);
@@ -165,6 +170,10 @@ public class ClientHandler implements Runnable {
         return null;
     }
     
+    /**
+     * Receive incoming messages from the input buffer.
+     * A variation to receive() to handle timeouts and does not block
+     */
     private synchronized String receive2(String message) {
         log.info("Received message " + message);
         Platform.runLater(() -> StartLobby.getController().addLog("Received message " + message));
@@ -179,6 +188,10 @@ public class ClientHandler implements Runnable {
 		return message;
     }
     
+    /**
+     * Store attacks received from each alive player in a single shared list
+     * Also store corresponding vector clock values 
+     */
     private synchronized void store(String message) {
     	merge.add(message);
         log.info("Merge: " + playerNum + ": " + merge.toString());
@@ -193,7 +206,7 @@ public class ClientHandler implements Runnable {
         String command = "";  // Command
         JSONObject json;
         boolean disconnected = false;
-        // Send client's process ID to them so they can initialise their vector clock
+        // Send client's process ID to them so they can initialize their vector clock
         int totalProcesses = maxPlayers + 1;
         message = Messages.processInfo(totalProcesses, (int) playerNum).toJSONString();
         send(message);
@@ -215,7 +228,7 @@ public class ClientHandler implements Runnable {
         		specialAttack = false;
         	}
         	sharedAlive = this.alivePlayers;
-        	// Reset merge list
+        	// Reset shared lists in each round
             merge = new ArrayList<>();
             vcMerge = new ArrayList<>();
             List<Long> deadPlayers = new ArrayList<Long>();
@@ -225,11 +238,13 @@ public class ClientHandler implements Runnable {
                 received = limiter.callWithTimeout(in::readLine, 60, TimeUnit.SECONDS);
             } catch (TimeoutException | UncheckedTimeoutException e) {
                 System.out.println("This player has timedout");
-                //vectorClock.onInternalEvent();
+                // Update Vector Clock on timeout
+                vectorClock.onInternalEvent();
                 disconnected = true;
             } catch (Exception e) {
                 // something bad happened while reading the line
             }
+            // Killing timed out players
             if(disconnected) {
             	wizards.get((int) (playerNum - 1)).setStatus();
             	sharedAlive = sharedAlive - 1;
@@ -243,15 +258,15 @@ public class ClientHandler implements Runnable {
             	json = Messages.strToJson(received);
             	command = json.get("command").toString();
             }
-            //received = receive();
             if (!command.equals("Over") && !command.equals("")) {
             	store(received);
+            	// Wait until responses are received from all alive players
                 do {
                     deadPlayers = gameLogic(merge, disconnectedPlayers, vcMerge);
                 } while (deadPlayers == null);
-                iteration += 1;
+             
 
-                // Send feedback to the player
+                // Send feedback to the player of result of the round
                 message = Messages.feedback(deadPlayers, alivePlayers, vectorClock, specialAttack).toString();
                 send(message);
 

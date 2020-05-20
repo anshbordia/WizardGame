@@ -19,7 +19,7 @@ public class Lobby implements Runnable {
     private int port;
     private ServerSocket serverSocket;
     private List<Socket> clients;
-    private List<Double> killProbabilities;
+    private List<Double> killProbabilities;  // Kill probabilities of all players
     private int maxPlayers;
     private int playersJoined = 0;
 
@@ -33,7 +33,7 @@ public class Lobby implements Runnable {
     @Override
     public void run() {
         try {
-            // Initialise the server (i.e. lobby)
+            // Initialize the server (i.e. lobby)
             this.serverSocket = new ServerSocket(port);
             log.info("Lobby created! Waiting for players to join...");
             Platform.runLater(() -> StartLobby.getController().addLog("Lobby created! Waiting for players to join..."));
@@ -41,6 +41,7 @@ public class Lobby implements Runnable {
             // Allow up to 'maxPlayers' players to join the lobby,
             // and assign each player with a 'killProbability'.
             
+            //Wait until all players have joined.
             while (playersJoined < maxPlayers) {
                 Socket clientSocket = serverSocket.accept();
                 this.clients.add(clientSocket);
@@ -52,7 +53,7 @@ public class Lobby implements Runnable {
                 killProbabilities.add(killProbability);
             }
 
-            // Create and run a client handler thread for each player
+            // Create and run a client handler thread for each player.
             for (int playerNum = 0; playerNum < maxPlayers; playerNum++) {
                 Socket socket = this.clients.get(playerNum);
                 BufferedReader in =

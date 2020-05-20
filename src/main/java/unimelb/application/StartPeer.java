@@ -1,5 +1,4 @@
 package main.java.unimelb.application;
-
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.JavaFXBuilderFactory;

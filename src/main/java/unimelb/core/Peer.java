@@ -27,8 +27,8 @@ public class Peer implements Runnable {
     private BufferedWriter out;
     private Wizard wizard;
     private VectorClock vectorClock;
-    private long startTime;
-    private long endTime;
+    private long startTime;  // Timeout clock start
+    private long endTime;   // Timeout clock end
     private boolean specialAttack = false;
     private long time;
     private boolean success;
@@ -110,14 +110,14 @@ public class Peer implements Runnable {
         String command = "";
         JSONObject json;
 
-        // Initialise vector clock
+        // Initialize vector clock
         received = receive();
         Platform.runLater(() -> StartPeer.getController().addLog("Received from Server: " + received));
         Platform.runLater(() -> StartPeer.getController().updateLog());
         json = Messages.strToJson(received);
         this.initialiseVectorClock(json);
 
-
+        //Start only when Begin command received from server
         while (!command.equals("Begin")) {
             received = receive();
             Platform.runLater(() -> StartPeer.getController().addLog("Received from Server: " + received));
@@ -137,15 +137,13 @@ public class Peer implements Runnable {
         }
         countDown();
 
-//        while (wizard.getStatus() == 1) {
-//            
-//        }
-        // Close the connection to server
+
 
     } 
     
     private void countDown() {
     	try {
+    		//Play until wizard is alive
     		if (wizard.getStatus() == 1) {
     			Platform.runLater(() -> StartPeer.getController().setButtonDisable(true));
                 // Prompt player to get ready to input attack
@@ -194,7 +192,8 @@ public class Peer implements Runnable {
         Platform.runLater(() -> StartPeer.getController().addLog("Send to Server: " + message));
         Platform.runLater(() -> StartPeer.getController().updateLog());
         endTime = System.currentTimeMillis();
-        if((endTime - startTime) > 35000) {
+        //60 seconds timeout
+        if((endTime - startTime) > 60000) {
         	log.info("Damn it I was disconnected :(");
         	wizard.setStatus();
         	Platform.runLater(() -> StartPeer.getController().setButtonDisable(true));
@@ -214,7 +213,9 @@ public class Peer implements Runnable {
         log.info("Received from lobby message " + received);
         Platform.runLater(() -> StartPeer.getController().addLog("Received from Server: " + received));
         Platform.runLater(() -> StartPeer.getController().updateLog());
+        // Find out if killed in the current round
         boolean deadOrAlive = Helper.processFeedback(received, wizard.getWizardNum());
+        // Update if special attack can be performed in next round
         specialAttack = Helper.canIspecialAttack(received);
      
         System.out.println("Special Attack:" + specialAttack);
@@ -227,6 +228,8 @@ public class Peer implements Runnable {
             Platform.runLater(() -> StartPeer.getController().addLog("Send to Server: " + message));
             Platform.runLater(() -> StartPeer.getController().updateLog());
         } else {
+        	// If not dead, check if winner
+        	// If winner, send Over to server, else continue game.
             if (Helper.amIwinner(received)) {
                 log.info("You are the winner!");
                 Platform.runLater(() -> StartPeer.getController().setGameText("You are the Winner!"));
