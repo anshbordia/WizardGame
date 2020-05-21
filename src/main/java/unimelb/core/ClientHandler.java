@@ -238,6 +238,8 @@ public class ClientHandler implements Runnable {
                 received = limiter.callWithTimeout(in::readLine, 60, TimeUnit.SECONDS);
             } catch (TimeoutException | UncheckedTimeoutException e) {
                 System.out.println("This player has timedout");
+                Platform.runLater(() -> StartLobby.getController().addLog("This player has timedout"));
+                Platform.runLater(() -> StartLobby.getController().updateLog());
                 // Update Vector Clock on timeout
                 vectorClock.onInternalEvent();
                 disconnected = true;
@@ -253,8 +255,6 @@ public class ClientHandler implements Runnable {
             }
             else {
             	receive2(received);
-                Platform.runLater(() -> StartLobby.getController().addLog("Received from Client: " + received));
-                Platform.runLater(() -> StartLobby.getController().updateLog());
             	json = Messages.strToJson(received);
             	command = json.get("command").toString();
             }
@@ -274,6 +274,8 @@ public class ClientHandler implements Runnable {
                     Wizard wizard = wizards.get((int) playerNum-1);
                     if (wizard.getStatus() == 1) {
                         log.info("Player " + playerNum + " wins!");
+                        Platform.runLater(() -> StartLobby.getController().addLog("Player " + playerNum + " wins!"));
+                        Platform.runLater(() -> StartLobby.getController().updateLog());
                         vectorClock.onInternalEvent();
                     }
                 }
