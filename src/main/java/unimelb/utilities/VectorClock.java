@@ -1,39 +1,38 @@
 package main.java.unimelb.utilities;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.logging.Logger;
 
-
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-
 /**
- * Vector clock logic
- *  1. initially all clocks zero
- *  2. Each time a process sends message, increment own logical clock by one in vector, before sending copy
- *  3. Each time a process receives a message, increment own logical clock by one and take max of local value
- *     and value received in message
+ * This file contains the VectorClock class which is responsible
+ * for generating a partial ordering of events within our
+ * distributed wizard game. Each process in the system will
+ * abide by the following clock update rules:
+ *
+ *  1. Initially all clocks are zero
+ *  2. Each time a process sends message, increment own logical
+ *     clock by one in vector, before sending a copy of the vector
+ *  3. Each time a process receives a message, take max of local value
+ *     and value received in message, and increment own logical clock by
+ *     one
  */
 
 public class VectorClock {
 
     private static Logger log = Logger.getLogger(VectorClock.class.getName());
 
-    private int N;
+    private int totalProcesses;
     private int processID;
     private long timestamp;
     private List<Long> timestamps;
 
-    public VectorClock(int N, int processID) {
-        this.N = N;
+    public VectorClock(int totalProcesses, int processID) {
+        this.totalProcesses = totalProcesses;
         this.processID = processID;
         this.timestamp = 0;
         this.timestamps = new ArrayList<>();
-        for (int i = 0; i < N; i++) {
+        for (int i = 0; i < totalProcesses; i++) {
             timestamps.add((long) 0);
         }
     }
@@ -62,7 +61,7 @@ public class VectorClock {
 
     /**
      * Used to compare one vector clock with another
-     * using '<', '=' and '>' operators
+     * using '<', '=', '>', and '||' operators
      * @param other vector clock
      * @return -1, 0, 1, null for less than, equal to, greater than, asynchronous
      */
@@ -129,66 +128,5 @@ public class VectorClock {
     @Override
     public String toString() {
         return "Process " + processID + ": " + timestamps;
-    }
-
-
-    // Entry point for debugging only (ignore this code, will delete later)
-    public static void main(String[] args) {
-        int maxPlayers = 4;
-        int playerNum = 4;
-        String message = Messages.processInfo(maxPlayers, playerNum).toJSONString();
-        System.out.println("Message: " + message);
-
-
-        List<Long> longs = new ArrayList<>();
-        longs.add((long) 2);
-        longs.add((long) 4);
-        longs.add((long) 3);
-        System.out.println("Process 4: " + longs);
-
-        JSONObject json = new JSONObject();
-        JSONArray arr = new JSONArray();
-        arr.addAll(longs);
-        json.put("vectorClock", arr);
-        System.out.println(json.toJSONString());
-        System.out.println(json.toString());
-
-        VectorClock vc1 = new VectorClock(2, 0);
-        VectorClock vc2 = new VectorClock(2, 1);
-
-        List<Long> timestamps = vc1.getTimestamps();
-        JSONArray a = new JSONArray();
-        a.addAll(timestamps);
-
-        System.out.println(a.toJSONString());
-
-
-
-        List<Double> probs = new ArrayList<>();
-        probs.add(0.2);
-        probs.add(0.8);
-        JSONObject j = Messages.init(probs, (long) 0, 0.2, vc1);
-        String m = j.toJSONString();
-        System.out.println("M = " + m);
-
-        JSONObject j_prime = Messages.strToJson(m);
-        JSONArray tsJson = (JSONArray) j_prime.get("vectorClock");
-        List<Long> ts = new ArrayList<>(tsJson);
-        System.out.println(j_prime);
-        System.out.println("Timestamps: " + ts);
-
-
-        List<Long> ls1 = new ArrayList<>();
-        ls1.add((long) 2);
-        ls1.add((long) 3);
-
-        List<Long> ls2 = new ArrayList<>();
-        ls2.add((long) 2);
-        ls2.add((long) 3);
-
-        System.out.println("ls1 = " + ls1);
-        System.out.println("ls2 = " + ls2);
-        System.out.println(ls1.equals(ls2));
-
     }
 }
